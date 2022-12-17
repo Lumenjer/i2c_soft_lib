@@ -2,17 +2,18 @@
 #define I2C_SOFT_LIB_H
 
 #include <stdint.h>
+#include "i2c_lib_config.h"
 
 #ifndef DEVICE_MAX
     #define DEVICE_MAX 10
 #endif
 
 #ifndef ASSERT
+#warning ASSERT is NOT configured!
   #define ASSERT(x) \
-    ((x) \
-        ? (void)0 \
-        : (void)0\
-    )
+    if(!(x)) \
+        {(void) 0}
+
 #endif
 
 typedef bool(*read_pin_cb)(void);

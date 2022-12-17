@@ -18,17 +18,25 @@ void i2C_soft_handler(i2c_soft_bus* bus_ptr){
 }
 
 bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_size){
+  bool result = false;
 
+  return result;
 }
 
 bool i2c_soft_write(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t size){
+  bool result = false;
 
+  return result;
 }
 
 static uint8_t i2c_soft_byte_read(i2c_soft_bus* bus_ptr){
+  uint8_t byte = 0;
 
+  return byte;
 }
 
 static uint8_t i2c_soft_byte_write(i2c_soft_bus* bus_ptr){
+  uint8_t byte = 0;
 
+  return byte;
 }
