@@ -3,15 +3,19 @@
 
 #define MAX_ADDRESS (127)
 
-enum {
+typedef enum {
   I2C_SOFT_READ   = 1u,
   I2C_SOFT_WRITE  = 0u
-};
+} i2c_soft_msg_type;
 
 static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte);
 static bool i2c_soft_byte_write(i2c_soft_bus* bus_ptr, uint8_t byte);
 static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr);
 
+
+///=========================================================================
+/// @brief @todo
+///=========================================================================
 void i2c_soft_init(i2c_soft_bus* bus_ptr, i2c_soft_init_struct* init_ptr){
   ASSERT(bus_ptr);
   ASSERT(init_ptr);
@@ -32,11 +36,22 @@ void i2c_soft_init(i2c_soft_bus* bus_ptr, i2c_soft_init_struct* init_ptr){
 
 }
 
+
+///=========================================================================
+/// @brief @todo
+///=========================================================================
 void i2C_soft_handler(i2c_soft_bus* bus_ptr){
 
 }
 
+
+///=========================================================================
+/// @brief @todo
+///=========================================================================
 uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr){
+  ASSERT(bus_ptr);
+  ASSERT(dev_arr);
+
   uint8_t device_founded = 0;
 
   for (uint8_t adr = 0; adr < MAX_ADDRESS; adr++){
@@ -46,19 +61,23 @@ uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr){
   return device_founded;
 }
 
+///=========================================================================
+/// @brief @todo
+///=========================================================================
 bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_size){
+  ASSERT(device_ptr);
+  ASSERT(buff_ptr);
+
   bool result = false;
   i2c_soft_bus* bus = device_ptr->bus_ptr;
   uint32_t micros1 = micros();
 
-  // ASSERT(i2c_soft_transmission_start(device_ptr, false));
   result = i2c_soft_transmission_start(device_ptr);
 
   uint8_t bytes[2] = {(uint8_t)((device_ptr->addr << 1u) + I2C_SOFT_WRITE),  0xD0};
   for (uint8_t idx = 0; (idx < sizeof(bytes)) && result; idx++) {
     if (i2c_soft_byte_write(bus, bytes[idx])) {
       result = true;
-      // LOG(printf, "SDA %d\n", bus->read_sda_ptr());
     }
     else {
       result = false;
@@ -79,7 +98,7 @@ bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_s
     result = i2c_soft_byte_write(bus, (uint8_t)((device_ptr->addr << 1u) + I2C_SOFT_READ));
   }
   else {
-    LOG(println, "Addres send failed");
+    LOG(println, "Address send failed");
   }
 
   if (result)
@@ -120,12 +139,18 @@ bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_s
   return result;
 }
 
+///=========================================================================
+/// @brief @todo
+///=========================================================================
 bool i2c_soft_write(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t size){
   bool result = false;
 
   return result;
 }
 
+///=========================================================================
+/// @brief @todo
+///=========================================================================
 static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte){
   bool result = true;
   *byte = 0;
@@ -148,6 +173,10 @@ static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte){
   return result;
 }
 
+
+///=========================================================================
+/// @brief @todo
+///=========================================================================
 static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr){
   bool result = false;
   i2c_soft_bus* bus = dev_ptr->bus_ptr;
@@ -172,6 +201,10 @@ static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr){
   return result;
 }
 
+
+///=========================================================================
+/// @brief @todo
+///=========================================================================
 static bool i2c_soft_byte_write(i2c_soft_bus* bus_ptr, uint8_t byte){
   bool result = false;
 
