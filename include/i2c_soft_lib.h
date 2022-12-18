@@ -5,9 +5,14 @@
 #include "i2c_lib_config.h"
 
 #ifndef DEVICE_MAX
-    #define DEVICE_MAX 10
+  #warning i2c_soft_lib: DEVICE_MAX is NOT defined! DEVICE_MAX == 10
+  #define DEVICE_MAX (10)
 #endif
 
+#ifndef ADDRESS_BITS_MAX
+  #warning i2c_soft_lib: ADDRESS_BITS_MAX is NOT defined! ADDRESS_BITS_MAX == 7
+  #define ADDRESS_BITS_MAX (7)
+#endif
 #ifndef ASSERT
 #warning ASSERT is NOT configured!
   #define ASSERT(x) \
@@ -16,11 +21,18 @@
 
 #endif
 
-typedef bool(*read_pin_cb)(void);
+#define BITS_IN_BYTE 8
+
+typedef bool(*i2c_soft_read_pin_cb)(void);
+typedef void(*i2c_soft_pull_pin_cb)(bool);
+typedef void(*i2c_soft_delay_micros_cb)(uint32_t);
 
 typedef struct {
-  read_pin_cb read_sda_ptr;
-  read_pin_cb read_scl_ptr;
+  i2c_soft_read_pin_cb read_sda_ptr;
+  i2c_soft_read_pin_cb read_scl_ptr;
+  i2c_soft_pull_pin_cb pull_sda_ptr;
+  i2c_soft_pull_pin_cb pull_scl_ptr;
+  i2c_soft_delay_micros_cb delay_micros;
 } i2c_soft_init_struct;
 
 typedef enum {
@@ -38,16 +50,21 @@ typedef enum {
   I2C_ERROR_TOTAL
 } i2c_error;
 
+
+typedef struct {
+  i2c_soft_read_pin_cb read_sda_ptr;
+  i2c_soft_read_pin_cb read_scl_ptr;
+  i2c_soft_pull_pin_cb pull_sda_ptr;
+  i2c_soft_pull_pin_cb pull_scl_ptr;
+  i2c_soft_delay_micros_cb delay_micros;
+  // i2c_soft_device device_arr[DEVICE_MAX];
+} i2c_soft_bus;
+
 typedef struct {
   i2c_soft_devtype type;
   uint8_t addr;
+  i2c_soft_bus* bus_ptr;
 } i2c_soft_device;
-
-typedef struct {
-  read_pin_cb read_sda_ptr;
-  read_pin_cb read_scl_ptr;
-  i2c_soft_device device_arr[DEVICE_MAX];
-} i2c_soft_bus;
 
 void i2c_soft_init(i2c_soft_bus* bus_ptr, i2c_soft_init_struct* init_ptr);
 
@@ -55,5 +72,7 @@ void i2C_soft_handler(i2c_soft_bus* bus_ptr);
 
 bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_size);
 bool i2c_soft_write(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t size);
+
+uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr);
 
 #endif // I2C_SOFT_LIB_H
