@@ -8,7 +8,7 @@ enum {
   I2C_SOFT_WRITE  = 0u
 };
 
-static uint8_t i2c_soft_byte_read(i2c_soft_bus* bus_ptr);
+static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte);
 static bool i2c_soft_byte_write(i2c_soft_bus* bus_ptr, uint8_t byte);
 static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr);
 
@@ -67,21 +67,42 @@ bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_s
     }
   }
 
-  // LOG(printf, "SDA = %d\n", bus->read_sda_ptr());
   bus->delay_micros(2);
-  // bus->pull_scl_ptr(false);
-  // bus->delay_micros(4);
-  // bus->pull_sda_ptr(true);
-  // bus->delay_micros(4);
-  // bus->pull_scl_ptr(true);
+  bus->pull_scl_ptr(false);
+  bus->delay_micros(4);
+  bus->pull_sda_ptr(true);
+  bus->delay_micros(4);
+  bus->pull_scl_ptr(true);
 
-  // if (result)
-  // {
-  //   result = i2c_soft_byte_write(bus, 0xD0);
-  // }
-  // else {
-  //   LOG(println, "Addres send failed");
-  // }
+  if (result)
+  {
+    result = i2c_soft_byte_write(bus, (uint8_t)((device_ptr->addr << 1u) + I2C_SOFT_READ));
+  }
+  else {
+    LOG(println, "Addres send failed");
+  }
+
+  if (result)
+  {
+    for (uint8_t idx = 0; idx < max_size; idx++)
+    {
+      result = i2c_soft_byte_read(bus, &buff_ptr[idx]);
+      bus->pull_scl_ptr(false);
+      bus->delay_micros(1);
+      uint8_t timeout = 10;
+      while (--timeout && !bus->read_scl_ptr()){
+        bus->delay_micros(1);
+      }
+      if (timeout == 0)
+      {
+        // TODO:
+      }
+      bus->pull_sda_ptr(idx < max_size - 1);
+    }
+  }
+  else {
+    LOG(println, "Addres send failed");
+  }
 
   bus->delay_micros(2);
   bus->pull_sda_ptr(true);
@@ -105,10 +126,26 @@ bool i2c_soft_write(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t size
   return result;
 }
 
-static uint8_t i2c_soft_byte_read(i2c_soft_bus* bus_ptr){
-  uint8_t byte = 0;
+static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte){
+  bool result = true;
+  *byte = 0;
+  for (uint8_t bit_nums = BITS_IN_BYTE; bit_nums > 0; bit_nums--) {
+    bus_ptr->pull_scl_ptr(false);
+    bus_ptr->delay_micros(4);
+    *byte |= (bus_ptr->read_sda_ptr() << bit_nums - 1);
+    bus_ptr->pull_scl_ptr(true);
+    bus_ptr->delay_micros(4);
+    uint8_t timeout = 10;
+    while (--timeout && !bus_ptr->read_scl_ptr())
+    {
+      bus_ptr->delay_micros(1);
+    }
+    if (timeout == 0) {
+      // TODO:
+    }
+  }
 
-  return byte;
+  return result;
 }
 
 static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr){
