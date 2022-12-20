@@ -23,9 +23,9 @@
 
 #define BITS_IN_BYTE 8
 
-typedef bool(*i2c_soft_read_pin_cb)(void);
-typedef void(*i2c_soft_pull_pin_cb)(bool);
-typedef void(*i2c_soft_delay_micros_cb)(uint32_t);
+typedef bool(*i2c_soft_read_pin_cb)(void);              ///< Type for read pin callback function
+typedef void(*i2c_soft_set_pin_cb)(bool);               ///< Type for pull pi
+typedef void(*i2c_soft_delay_micros_cb)(uint32_t);      ///< Type for delay microsecond callback function
 
 typedef enum {
   I2C_SOFT_SPEED_10K,
@@ -45,19 +45,19 @@ typedef enum {
   I2C_SOFT_BME,
 
   I2C_SOFT_TOTAL
-} i2c_soft_devtype;
+} i2c_soft_devtype;     // not in use for now
 
 typedef enum {
   I2C_ERROR_NONE = 0,
 
   I2C_ERROR_TOTAL
-} i2c_soft_error;
+} i2c_soft_error;       // not in use for now
 
 typedef struct {
   i2c_soft_read_pin_cb      read_sda_ptr;
   i2c_soft_read_pin_cb      read_scl_ptr;
-  i2c_soft_pull_pin_cb      set_sda_ptr;
-  i2c_soft_pull_pin_cb      set_scl_ptr;
+  i2c_soft_set_pin_cb       set_sda_ptr;
+  i2c_soft_set_pin_cb       set_scl_ptr;
   i2c_soft_delay_micros_cb  delay_micros;
   i2c_soft_speed            speed;
 } i2c_soft_init_struct;
@@ -65,8 +65,8 @@ typedef struct {
 typedef struct {
   i2c_soft_read_pin_cb      read_sda_ptr;
   i2c_soft_read_pin_cb      read_scl_ptr;
-  i2c_soft_pull_pin_cb      set_sda_ptr;
-  i2c_soft_pull_pin_cb      set_scl_ptr;
+  i2c_soft_set_pin_cb       set_sda_ptr;
+  i2c_soft_set_pin_cb       set_scl_ptr;
   i2c_soft_delay_micros_cb  delay_micros;
   i2c_soft_speed            speed;
   uint16_t                  half_period_delay;
@@ -92,6 +92,6 @@ void i2c_soft_set_speed(i2c_soft_bus* bus_ptr, i2c_soft_speed speed);
 i2c_soft_speed i2c_soft_get_speed(i2c_soft_bus* bus_ptr);
 
 
-uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr);
+uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr, uint8_t arr_size);
 
 #endif // I2C_SOFT_LIB_H

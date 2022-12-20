@@ -1,17 +1,17 @@
-#include <Arduino.h>
 #include "../include/i2c_soft_lib.h"
 
 #define MAX_ADDRESS             (127)
 #define I2C_ADDRESS_START       (0x08)      // firs available address I2C (0x00 - 0x07 are reserved)
 #define I2C_ADDRESS_END         (0x77)      // last available address I2C (0x78 - 0x7F are reserved)
+#define I2C_ADDRESS_MAX         (0x7F)      // Max support I2C device address
 #define I2C_SOFT_TIMEOUT_US     (1000)      // timeout for correct line condition, range 1 - 65535
 #define I2C_DELAY_1_US          (1)         // delay 1 microsecond
 #define I2C_SOFT_RELEASE        (true)
 #define I2C_SOFT_PULL           (false)
 
 typedef enum {
-  I2C_SOFT_READ   = 1u,
-  I2C_SOFT_WRITE  = 0u
+  I2C_SOFT_WRITE  = 0u,                     ///< used for set I2C write bit
+  I2C_SOFT_READ   = 1u                      ///< used for set I2C read bit
 } i2c_soft_msg_type;
 
 static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte);
@@ -21,9 +21,13 @@ static bool i2c_soft_transmission_stop(i2c_soft_bus* bus_ptr);
 inline static bool i2c_soft_wait_until_line(i2c_soft_delay_micros_cb delay_micros, i2c_soft_read_pin_cb read_pin, bool condition);
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for init I2C bus
 ///=========================================================================
-void i2c_soft_init(i2c_soft_bus* bus_ptr, i2c_soft_init_struct* init_ptr){
+void i2c_soft_init
+(
+  i2c_soft_bus*         bus_ptr,      ///< Pointer to I2C bus
+  i2c_soft_init_struct* init_ptr      ///< Pointer to I2C init struct
+){
   ASSERT(bus_ptr);
   ASSERT(init_ptr);
   ASSERT(init_ptr->read_scl_ptr);
@@ -47,7 +51,7 @@ void i2c_soft_init(i2c_soft_bus* bus_ptr, i2c_soft_init_struct* init_ptr){
 
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Not in use for now
 ///=========================================================================
 void i2C_soft_handler(i2c_soft_bus* bus_ptr){
 
@@ -55,9 +59,16 @@ void i2C_soft_handler(i2c_soft_bus* bus_ptr){
 
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for find devices on I2C bus
+/// @return Count of founded device
 ///=========================================================================
-uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr){
+uint8_t i2c_soft_device_lookup
+(
+  i2c_soft_bus*     bus_ptr,          ///< Pointer to I2C bus
+  i2c_soft_device*  dev_arr,          ///< Input array for founded device
+  uint8_t           arr_size          ///< Size of device array
+)
+{
   ASSERT(bus_ptr);
   ASSERT(dev_arr);
 
@@ -75,7 +86,7 @@ uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr){
     uint8_t data = 0;
     if (i2c_soft_read(&temp, &data, 1))
     {
-      if (device_founded < DEVICE_MAX)
+      if (device_founded < arr_size)
       {
         dev_arr[device_founded] = temp;
       }
@@ -87,18 +98,36 @@ uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr){
 }
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for read from I2C device
+/// @return result (success == true)
 ///=========================================================================
-bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_size)
+bool i2c_soft_read
+(
+  i2c_soft_device*  device_ptr,       ///< I2C device pointer
+  uint8_t*          buff_ptr,         ///< Read buffer pointer
+  uint8_t           max_size          ///< Max bytes to read
+)
 {
+  ASSERT(device_ptr->addr <= I2C_ADDRESS_MAX);
+
   return i2c_soft_write_read(device_ptr, buff_ptr, 0, max_size);
 }
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for write and read from I2C device
+///        Can be used for writing command or address which should be read
+/// @return result (success == true)
 ///=========================================================================
-bool i2c_soft_write_read(i2c_soft_device* device_ptr, uint8_t* in_out_buff_ptr, uint8_t write_size, uint8_t max_read_size){
+bool i2c_soft_write_read
+(
+  i2c_soft_device*  device_ptr,       ///< I2C device pointer
+  uint8_t*          in_out_buff_ptr,  ///< Write and read buffer pointer
+  uint8_t           write_size,       ///< Size to write in bytes
+  uint8_t           max_read_size     ///< Max bytes to read
+)
+{
   ASSERT(device_ptr);
+  ASSERT(device_ptr->addr <= I2C_ADDRESS_MAX);
   ASSERT(in_out_buff_ptr);
 
   bool result = false;
@@ -168,10 +197,18 @@ bool i2c_soft_write_read(i2c_soft_device* device_ptr, uint8_t* in_out_buff_ptr, 
 }
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for write to I2C device
+/// @return result (success == true)
 ///=========================================================================
-bool i2c_soft_write(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t size){
+bool i2c_soft_write
+(
+  i2c_soft_device*  device_ptr,       ///< I2C device pointer
+  uint8_t*          buff_ptr,         ///< Write buffer pointer
+  uint8_t           size              ///< Size to write in bytes
+)
+{
   ASSERT(device_ptr);
+  ASSERT(device_ptr->addr <= I2C_ADDRESS_MAX);
   ASSERT(buff_ptr);
 
   bool result = false;
@@ -198,9 +235,15 @@ bool i2c_soft_write(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t size
 }
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for read byte from I2C bus
+/// @return result (success == true)
 ///=========================================================================
-static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte){
+static bool i2c_soft_byte_read
+(
+  i2c_soft_bus* bus_ptr,              ///< I2C bus pointer
+  uint8_t*      byte                  ///< Byte data pointer
+)
+{
   bool result = true;
   *byte = 0;
   for (uint8_t bit_nums = BITS_IN_BYTE; bit_nums > 0; bit_nums--)
@@ -219,9 +262,14 @@ static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte){
 
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for generate I2C start or restart pattern
+/// @return result (success == true)
 ///=========================================================================
-static bool i2c_soft_transmission_start(i2c_soft_bus* bus_ptr){
+static bool i2c_soft_transmission_start
+(
+  i2c_soft_bus* bus_ptr               ///< I2C bus pointer
+)
+{
   bool result = false;
 
   bus_ptr->set_sda_ptr(I2C_SOFT_RELEASE);
@@ -246,9 +294,13 @@ static bool i2c_soft_transmission_start(i2c_soft_bus* bus_ptr){
 }
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for generate I2C stop pattern
+/// @return result (success == true)
 ///=========================================================================
-static bool i2c_soft_transmission_stop(i2c_soft_bus* bus_ptr)
+static bool i2c_soft_transmission_stop
+(
+  i2c_soft_bus* bus_ptr               ///< I2C bus pointer
+)
 {
   bool result = false;
 
@@ -274,9 +326,15 @@ static bool i2c_soft_transmission_stop(i2c_soft_bus* bus_ptr)
 
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for delay until line condition
+/// @return result (success == true)
 ///=========================================================================
-inline static bool i2c_soft_wait_until_line(i2c_soft_delay_micros_cb delay_micros, i2c_soft_read_pin_cb read_pin, bool condition)
+inline static bool i2c_soft_wait_until_line
+(
+  i2c_soft_delay_micros_cb  delay_micros,       ///< Pointer for delay microsecond function
+  i2c_soft_read_pin_cb      read_pin,           ///< Pointer for read pin status function
+  bool                      condition           ///< Expected line condition
+)
 {
   uint16_t timeout = I2C_SOFT_TIMEOUT_US;
 
@@ -294,9 +352,15 @@ inline static bool i2c_soft_wait_until_line(i2c_soft_delay_micros_cb delay_micro
 }
 
 ///=========================================================================
-/// @brief @todo
+/// @brief Function for write byte to I2C bus
+/// @return result (success == true)
 ///=========================================================================
-static bool i2c_soft_byte_write(i2c_soft_bus* bus_ptr, uint8_t byte){
+static bool i2c_soft_byte_write
+(
+  i2c_soft_bus* bus_ptr,              ///< I2C bus pointer
+  uint8_t       byte                  ///< Byte to write
+)
+{
   bool result = false;
 
   for (uint8_t bit_num = BITS_IN_BYTE; bit_num > 0; bit_num--){
@@ -321,7 +385,15 @@ static bool i2c_soft_byte_write(i2c_soft_bus* bus_ptr, uint8_t byte){
   return result;
 }
 
-void i2c_soft_set_speed(i2c_soft_bus* bus_ptr, i2c_soft_speed speed)
+
+///=========================================================================
+/// @brief Function for set I2C bus speed
+///=========================================================================
+void i2c_soft_set_speed
+(
+  i2c_soft_bus* bus_ptr,              ///< I2C bus pointer
+  i2c_soft_speed speed                ///< Speed to set
+)
 {
   ASSERT(speed < I2C_SOFT_SPEED_TOTAL);
 
@@ -355,7 +427,15 @@ void i2c_soft_set_speed(i2c_soft_bus* bus_ptr, i2c_soft_speed speed)
   bus_ptr->speed = speed;
 }
 
-i2c_soft_speed i2c_soft_get_speed(i2c_soft_bus* bus_ptr)
+
+///=========================================================================
+/// @brief Function for get I2C bus speed
+/// @return I2C bus speed
+///=========================================================================
+i2c_soft_speed i2c_soft_get_speed
+(
+  i2c_soft_bus* bus_ptr               ///< I2C bus pointer
+)
 {
   return bus_ptr->speed;
 }
