@@ -62,10 +62,25 @@ uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr){
   ASSERT(dev_arr);
 
   uint8_t device_founded = 0;
+  i2c_soft_device temp = {
+    .type     = I2C_SOFT_UNKNOWN,
+    .addr     = 0,
+    .bus_ptr  = bus_ptr,
+    .speed    = I2C_SOFT_SPEED_USE_BUS
+  };
 
   for (uint8_t addr = I2C_ADDRESS_START; addr <= I2C_ADDRESS_END; addr++)
   {
-
+    temp.addr = addr;
+    uint8_t data = 0;
+    if (i2c_soft_read(&temp, &data, 1))
+    {
+      if (device_founded < DEVICE_MAX)
+      {
+        dev_arr[device_founded] = temp;
+      }
+      device_founded++;
+    }
   }
 
   return device_founded;

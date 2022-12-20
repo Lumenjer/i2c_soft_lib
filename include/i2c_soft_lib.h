@@ -38,7 +38,8 @@ typedef enum {
 } i2c_soft_speed;
 
 typedef enum {
-  I2C_SOFT_DISPLAY = 0,
+  I2C_SOFT_UNKNOWN = 0,
+  I2C_SOFT_DISPLAY,
   I2C_SOFT_TEMP,
   I2C_SOFT_RTC,
   I2C_SOFT_BME,
