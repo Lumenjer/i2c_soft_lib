@@ -5,7 +5,7 @@
 #define I2C_ADDRESS_START       (0x08)      // firs available address I2C (0x00 - 0x07 are reserved)
 #define I2C_ADDRESS_END         (0x77)      // last available address I2C (0x78 - 0x7F are reserved)
 #define I2C_SOFT_TIMEOUT_US     (1000)      // timeout for correct line condition, range 1 - 65535
-#define I2C_DELAY_1_US          (1)         // TODO:
+#define I2C_DELAY_1_US          (1)         // delay 1 microsecond
 #define I2C_SOFT_RELEASE        (true)
 #define I2C_SOFT_PULL           (false)
 
@@ -16,8 +16,8 @@ typedef enum {
 
 static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte);
 static bool i2c_soft_byte_write(i2c_soft_bus* bus_ptr, uint8_t byte);
-static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr);
-static bool i2c_soft_transmission_stop(i2c_soft_device* dev_ptr);
+static bool i2c_soft_transmission_start(i2c_soft_bus* bus_ptr);
+static bool i2c_soft_transmission_stop(i2c_soft_bus* bus_ptr);
 inline static bool i2c_soft_wait_until_line(i2c_soft_delay_micros_cb delay_micros, i2c_soft_read_pin_cb read_pin, bool condition);
 
 ///=========================================================================
@@ -74,37 +74,48 @@ uint8_t i2c_soft_device_lookup(i2c_soft_bus* bus_ptr, i2c_soft_device* dev_arr){
 ///=========================================================================
 /// @brief @todo
 ///=========================================================================
-bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_size){
+bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_size)
+{
+  return i2c_soft_write_read(device_ptr, buff_ptr, 0, max_size);
+}
+
+///=========================================================================
+/// @brief @todo
+///=========================================================================
+bool i2c_soft_write_read(i2c_soft_device* device_ptr, uint8_t* in_out_buff_ptr, uint8_t write_size, uint8_t max_read_size){
   ASSERT(device_ptr);
-  ASSERT(buff_ptr);
+  ASSERT(in_out_buff_ptr);
 
   bool result = false;
   i2c_soft_bus* bus_ptr = device_ptr->bus_ptr;
   i2c_soft_speed backup_speed = i2c_soft_get_speed(bus_ptr);
-  uint32_t micros1 = micros();
 
   if (device_ptr->speed != I2C_SOFT_SPEED_USE_BUS)
   {
     i2c_soft_set_speed(bus_ptr, device_ptr->speed);
   }
-  result = i2c_soft_transmission_start(device_ptr);
 
-  uint8_t bytes[2] = {(uint8_t)((device_ptr->addr << 1u) + I2C_SOFT_WRITE),  0xD0};
-  for (uint8_t idx = 0; (idx < sizeof(bytes)) && result; idx++)
-  {
-    if (i2c_soft_byte_write(bus_ptr, bytes[idx])) {
-      result = true;
-    }
-    else {
-      result = false;
-      // TODO:
-      break;
-    }
-  }
+  result = i2c_soft_transmission_start(bus_ptr);
 
-  if (result)
+  if (write_size > 0)
   {
-    result = i2c_soft_transmission_start(device_ptr);
+    for (uint8_t idx = 0; (idx <= write_size) && result; idx++)
+    {
+      if (i2c_soft_byte_write(bus_ptr, idx ? in_out_buff_ptr[idx - 1] : (uint8_t)((device_ptr->addr << 1u) + I2C_SOFT_WRITE)))
+      {
+        result = true;
+      }
+      else {
+        result = false;
+        // TODO:
+        break;
+      }
+    }
+
+    if (result)
+    {
+      result = i2c_soft_transmission_start(bus_ptr);
+    }
   }
 
   if (result)
@@ -118,10 +129,10 @@ bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_s
 
   if (result)
   {
-    for (uint8_t idx = 0; idx < max_size; idx++)
+    for (uint8_t idx = 0; idx < max_read_size; idx++)
     {
-      result = i2c_soft_byte_read(bus_ptr, &buff_ptr[idx]);
-      bus_ptr->set_sda_ptr(idx == (max_size - 1));     // send NACK if last byte
+      result = i2c_soft_byte_read(bus_ptr, &in_out_buff_ptr[idx]);
+      bus_ptr->set_sda_ptr(idx == (max_read_size - 1));     // send NACK if last byte
       bus_ptr->set_scl_ptr(I2C_SOFT_RELEASE);
       bus_ptr->delay_micros(bus_ptr->half_period_delay);
       i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, I2C_SOFT_RELEASE);
@@ -134,9 +145,7 @@ bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_s
     // TODO:
   }
 
-  i2c_soft_transmission_stop(device_ptr);
-
-  uint32_t micros2 = micros();
+  i2c_soft_transmission_stop(bus_ptr);
 
   i2c_soft_set_speed(bus_ptr, backup_speed);
 
@@ -147,7 +156,28 @@ bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_s
 /// @brief @todo
 ///=========================================================================
 bool i2c_soft_write(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t size){
+  ASSERT(device_ptr);
+  ASSERT(buff_ptr);
+
   bool result = false;
+  i2c_soft_bus* bus_ptr = device_ptr->bus_ptr;
+  i2c_soft_speed backup_speed = i2c_soft_get_speed(bus_ptr);
+
+  if (device_ptr->speed != I2C_SOFT_SPEED_USE_BUS)
+  {
+    i2c_soft_set_speed(bus_ptr, device_ptr->speed);
+  }
+
+  result = i2c_soft_transmission_start(bus_ptr);
+
+  for (uint8_t idx = 0; (idx <= size && result); idx++)
+  {
+    result = i2c_soft_byte_write(bus_ptr, idx ? buff_ptr[idx - 1] : (uint8_t)((device_ptr->addr << 1u) + I2C_SOFT_WRITE));
+  }
+
+  i2c_soft_transmission_stop(bus_ptr);
+
+  i2c_soft_set_speed(bus_ptr, backup_speed);
 
   return result;
 }
@@ -176,9 +206,8 @@ static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte){
 ///=========================================================================
 /// @brief @todo
 ///=========================================================================
-static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr){
+static bool i2c_soft_transmission_start(i2c_soft_bus* bus_ptr){
   bool result = false;
-  i2c_soft_bus* bus_ptr = dev_ptr->bus_ptr;
 
   bus_ptr->set_sda_ptr(I2C_SOFT_RELEASE);
   bus_ptr->set_scl_ptr(I2C_SOFT_RELEASE);
@@ -204,10 +233,9 @@ static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr){
 ///=========================================================================
 /// @brief @todo
 ///=========================================================================
-static bool i2c_soft_transmission_stop(i2c_soft_device* dev_ptr)
+static bool i2c_soft_transmission_stop(i2c_soft_bus* bus_ptr)
 {
   bool result = false;
-  i2c_soft_bus* bus_ptr = dev_ptr->bus_ptr;
 
   if (bus_ptr->read_scl_ptr())
   {
@@ -308,6 +336,7 @@ void i2c_soft_set_speed(i2c_soft_bus* bus_ptr, i2c_soft_speed speed)
   default:
     break;
   }
+
   bus_ptr->speed = speed;
 }
 
