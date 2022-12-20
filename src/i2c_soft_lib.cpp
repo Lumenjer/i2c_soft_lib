@@ -138,9 +138,6 @@ bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_s
 
   uint32_t micros2 = micros();
 
-  LOG(printf, "Micros diff %d, result = %d\n", micros2 - micros1, result);
-  LOG(printf, "SDA = %d, SCL = %d\n", bus_ptr->read_sda_ptr(), bus_ptr->read_scl_ptr());
-
   i2c_soft_set_speed(bus_ptr, backup_speed);
 
   return result;
