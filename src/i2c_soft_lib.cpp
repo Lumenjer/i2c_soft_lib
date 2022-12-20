@@ -6,6 +6,8 @@
 #define I2C_ADDRESS_END         (0x77)      // last available address I2C (0x78 - 0x7F are reserved)
 #define I2C_SOFT_TIMEOUT_US     (1000)      // timeout for correct line condition, range 1 - 65535
 #define I2C_DELAY_1_US          (1)         // TODO:
+#define I2C_SOFT_RELEASE        (true)
+#define I2C_SOFT_PULL           (false)
 
 typedef enum {
   I2C_SOFT_READ   = 1u,
@@ -26,20 +28,20 @@ void i2c_soft_init(i2c_soft_bus* bus_ptr, i2c_soft_init_struct* init_ptr){
   ASSERT(init_ptr);
   ASSERT(init_ptr->read_scl_ptr);
   ASSERT(init_ptr->read_sda_ptr);
-  ASSERT(init_ptr->pull_scl_ptr);
-  ASSERT(init_ptr->pull_sda_ptr);
+  ASSERT(init_ptr->set_scl_ptr);
+  ASSERT(init_ptr->set_sda_ptr);
   ASSERT(init_ptr->delay_micros);
 
   bus_ptr->read_scl_ptr = init_ptr->read_scl_ptr;
   bus_ptr->read_sda_ptr = init_ptr->read_sda_ptr;
-  bus_ptr->pull_scl_ptr = init_ptr->pull_scl_ptr;
-  bus_ptr->pull_sda_ptr = init_ptr->pull_sda_ptr;
+  bus_ptr->set_scl_ptr = init_ptr->set_scl_ptr;
+  bus_ptr->set_sda_ptr = init_ptr->set_sda_ptr;
   bus_ptr->delay_micros = init_ptr->delay_micros;
 
   i2c_soft_set_speed(bus_ptr, init_ptr->speed);
 
-  bus_ptr->pull_scl_ptr(false);
-  bus_ptr->pull_sda_ptr(false);
+  bus_ptr->set_scl_ptr(I2C_SOFT_RELEASE);
+  bus_ptr->set_sda_ptr(I2C_SOFT_RELEASE);
 
 }
 
@@ -119,11 +121,11 @@ bool i2c_soft_read(i2c_soft_device* device_ptr, uint8_t* buff_ptr, uint8_t max_s
     for (uint8_t idx = 0; idx < max_size; idx++)
     {
       result = i2c_soft_byte_read(bus_ptr, &buff_ptr[idx]);
-      bus_ptr->pull_sda_ptr(idx < (max_size - 1));     // send NACK if last byte
-      bus_ptr->pull_scl_ptr(false);
+      bus_ptr->set_sda_ptr(idx == (max_size - 1));     // send NACK if last byte
+      bus_ptr->set_scl_ptr(I2C_SOFT_RELEASE);
       bus_ptr->delay_micros(bus_ptr->half_period_delay);
-      i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, true);
-      bus_ptr->pull_scl_ptr(true);
+      i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, I2C_SOFT_RELEASE);
+      bus_ptr->set_scl_ptr(I2C_SOFT_PULL);
       bus_ptr->delay_micros(bus_ptr->half_period_delay);
     }
   }
@@ -161,13 +163,13 @@ static bool i2c_soft_byte_read(i2c_soft_bus* bus_ptr, uint8_t* byte){
   *byte = 0;
   for (uint8_t bit_nums = BITS_IN_BYTE; bit_nums > 0; bit_nums--)
   {
-    bus_ptr->pull_scl_ptr(false);
+    bus_ptr->set_scl_ptr(I2C_SOFT_RELEASE);
     bus_ptr->delay_micros(bus_ptr->half_period_delay);
-    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, true);
+    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, I2C_SOFT_RELEASE);
     *byte |= (bus_ptr->read_sda_ptr() << bit_nums - 1);
-    bus_ptr->pull_scl_ptr(true);
+    bus_ptr->set_scl_ptr(I2C_SOFT_PULL);
     bus_ptr->delay_micros(bus_ptr->half_period_delay);
-    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, false);
+    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, I2C_SOFT_PULL);
   }
 
   return result;
@@ -181,12 +183,12 @@ static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr){
   bool result = false;
   i2c_soft_bus* bus_ptr = dev_ptr->bus_ptr;
 
-  bus_ptr->pull_sda_ptr(false);
-  bus_ptr->pull_scl_ptr(false);
+  bus_ptr->set_sda_ptr(I2C_SOFT_RELEASE);
+  bus_ptr->set_scl_ptr(I2C_SOFT_RELEASE);
   bus_ptr->delay_micros(bus_ptr->half_period_delay);
 
-  if (!i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, true) ||
-      !i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, true))
+  if (!i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, I2C_SOFT_RELEASE) ||
+      !i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, I2C_SOFT_RELEASE))
   {
     return false;
   }
@@ -195,9 +197,9 @@ static bool i2c_soft_transmission_start(i2c_soft_device* dev_ptr){
     result = true;
   }
 
-  bus_ptr->pull_sda_ptr(true);
+  bus_ptr->set_sda_ptr(I2C_SOFT_PULL);
   bus_ptr->delay_micros(bus_ptr->half_period_delay);
-  bus_ptr->pull_scl_ptr(true);
+  bus_ptr->set_scl_ptr(I2C_SOFT_PULL);
 
   return result;
 }
@@ -212,19 +214,19 @@ static bool i2c_soft_transmission_stop(i2c_soft_device* dev_ptr)
 
   if (bus_ptr->read_scl_ptr())
   {
-    bus_ptr->pull_scl_ptr(true);
-    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, false);
+    bus_ptr->set_scl_ptr(I2C_SOFT_PULL);
+    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, I2C_SOFT_PULL);
   }
 
   if (bus_ptr->read_sda_ptr())
   {
-    bus_ptr->pull_sda_ptr(true);
-    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_sda_ptr, false);
+    bus_ptr->set_sda_ptr(I2C_SOFT_PULL);
+    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_sda_ptr, I2C_SOFT_PULL);
   }
 
-  bus_ptr->pull_scl_ptr(false);
+  bus_ptr->set_scl_ptr(I2C_SOFT_RELEASE);
   bus_ptr->delay_micros(bus_ptr->half_period_delay);
-  bus_ptr->pull_sda_ptr(false);
+  bus_ptr->set_sda_ptr(I2C_SOFT_RELEASE);
   bus_ptr->delay_micros(bus_ptr->half_period_delay);
 
   return result;
@@ -258,23 +260,23 @@ static bool i2c_soft_byte_write(i2c_soft_bus* bus_ptr, uint8_t byte){
   bool result = false;
 
   for (uint8_t bit_num = BITS_IN_BYTE; bit_num > 0; bit_num--){
-    bool pull = !((byte >> (bit_num - 1)) & 1);
-    bus_ptr->pull_sda_ptr(pull);
+    bool release = ((byte >> (bit_num - 1)) & 1);
+    bus_ptr->set_sda_ptr(release);
     bus_ptr->delay_micros(bus_ptr->quarter_period_delay);
-    bus_ptr->pull_scl_ptr(false);
+    bus_ptr->set_scl_ptr(I2C_SOFT_RELEASE);
     bus_ptr->delay_micros(bus_ptr->half_period_delay);
 
-    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, true);
+    i2c_soft_wait_until_line(bus_ptr->delay_micros, bus_ptr->read_scl_ptr, I2C_SOFT_RELEASE);
 
-    bus_ptr->pull_scl_ptr(true);
+    bus_ptr->set_scl_ptr(I2C_SOFT_PULL);
     bus_ptr->delay_micros(bus_ptr->quarter_period_delay);
   }
 
-  bus_ptr->pull_sda_ptr(false);
-  bus_ptr->pull_scl_ptr(false);
+  bus_ptr->set_sda_ptr(I2C_SOFT_RELEASE);
+  bus_ptr->set_scl_ptr(I2C_SOFT_RELEASE);
   bus_ptr->delay_micros(bus_ptr->half_period_delay);
   result = !bus_ptr->read_sda_ptr();
-  bus_ptr->pull_scl_ptr(true);
+  bus_ptr->set_scl_ptr(I2C_SOFT_PULL);
 
   return result;
 }

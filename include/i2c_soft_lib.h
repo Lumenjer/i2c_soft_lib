@@ -55,8 +55,8 @@ typedef enum {
 typedef struct {
   i2c_soft_read_pin_cb      read_sda_ptr;
   i2c_soft_read_pin_cb      read_scl_ptr;
-  i2c_soft_pull_pin_cb      pull_sda_ptr;
-  i2c_soft_pull_pin_cb      pull_scl_ptr;
+  i2c_soft_pull_pin_cb      set_sda_ptr;
+  i2c_soft_pull_pin_cb      set_scl_ptr;
   i2c_soft_delay_micros_cb  delay_micros;
   i2c_soft_speed            speed;
 } i2c_soft_init_struct;
@@ -64,8 +64,8 @@ typedef struct {
 typedef struct {
   i2c_soft_read_pin_cb      read_sda_ptr;
   i2c_soft_read_pin_cb      read_scl_ptr;
-  i2c_soft_pull_pin_cb      pull_sda_ptr;
-  i2c_soft_pull_pin_cb      pull_scl_ptr;
+  i2c_soft_pull_pin_cb      set_sda_ptr;
+  i2c_soft_pull_pin_cb      set_scl_ptr;
   i2c_soft_delay_micros_cb  delay_micros;
   i2c_soft_speed            speed;
   uint16_t                  half_period_delay;
